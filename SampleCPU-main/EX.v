@@ -15,7 +15,9 @@ module EX(
     output wire [31:0] data_sram_wdata,
     
     
-     output wire [37:0] ex_to_id_forwarding
+     output wire [37:0] ex_to_id_forwarding,
+     output wire stallreq_for_ex,
+     output wire ex_aluop//≈–∂œ «∑Ò «load÷∏¡Ó
 );
 
     reg [`ID_TO_EX_WD-1:0] id_to_ex_bus_r;
@@ -102,5 +104,9 @@ module EX(
         rf_waddr,       // 36:32
         ex_result       // 31:0
     };
-     
+    assign ex_aluop=(data_ram_en&&(data_ram_wen==4'b0000))?1'b1:1'b0;
+    assign data_sram_addr =ex_result ;
+    assign data_sram_en =data_ram_en ;
+    assign data_sram_wen =data_ram_wen ;
+    assign data_sram_wdata =rf_rdata2;
 endmodule

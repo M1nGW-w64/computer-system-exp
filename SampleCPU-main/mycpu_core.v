@@ -59,7 +59,9 @@ module mycpu_core(
         
         
         .ex_to_id_forwarding(ex_to_id_forwarding),
-        .mem_to_id_forwarding(mem_to_id_forwarding)
+        .mem_to_id_forwarding(mem_to_id_forwarding),
+        .stallreq_for_id( stallreq_for_id),
+        .ex_aluop(ex_aluop)
     );
 
     EX u_EX(
@@ -74,7 +76,9 @@ module mycpu_core(
         .data_sram_wdata (data_sram_wdata ),
         
         
-        .ex_to_id_forwarding(ex_to_id_forwarding)
+        .ex_to_id_forwarding(ex_to_id_forwarding),
+        .stallreq_for_ex( stallreq_for_ex),
+        .ex_aluop(ex_aluop)
     );
 
     MEM u_MEM(
@@ -87,6 +91,7 @@ module mycpu_core(
         
         
         .mem_to_id_forwarding(mem_to_id_forwarding)
+        
     );
     
     WB u_WB(
@@ -103,6 +108,8 @@ module mycpu_core(
 
     CTRL u_CTRL(
     	.rst   (rst   ),
+    	.stallreq_for_id( stallreq_for_id),
+    	.stallreq_for_ex( stallreq_for_ex),
         .stall (stall )
     );
     
