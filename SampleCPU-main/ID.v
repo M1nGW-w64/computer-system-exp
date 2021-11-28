@@ -5,7 +5,6 @@ module ID(
     // input wire flush,
     input wire [`StallBus-1:0] stall,
     
-
     output wire stallreq,
 
     input wire [`IF_TO_ID_WD-1:0] if_to_id_bus,
@@ -238,6 +237,13 @@ assign stallreq_for_id=(ex_aluop &&((ex_forwarding_waddr==rs)||(ex_forwarding_wa
     assign inst_srav    =  (op_d[6'b00_0000]&&func_d[6'b00_0111]);
     assign inst_srl     =  (op_d[6'b00_0000]&&func_d[6'b00_0010]);
     assign inst_srlv    =  (op_d[6'b00_0000]&&func_d[6'b00_0110]);
+    assign inst_bgez    =  (op_d[6'b00_0001]&&rt_d[5'b00_001]);
+    assign inst_bgtz    =  (op_d[6'b00_0111]&&rt_d[5'b00_000]);
+    assign inst_blez    =  (op_d[6'b00_0110]&&rt_d[5'b00_000]);
+    assign inst_bltz    =  (op_d[6'b00_0001]&&rt_d[5'b00_000]);
+    assign inst_bltzal  =  (op_d[6'b00_0001]&&rt_d[5'b10_000]);
+    assign inst_bgezal  =  (op_d[6'b00_0001]&&rt_d[5'b10_001]);
+    assign inst_jalr    =  (op_d[6'b00_0000]&&rt_d[5'b00_000]&&func_d[6'b00_1001]);
     // rs to reg1 操作数一有三种可能
     assign sel_alu_src1[0] = inst_ori 
                              |inst_addiu
@@ -264,7 +270,7 @@ assign stallreq_for_id=(ex_aluop &&((ex_forwarding_waddr==rs)||(ex_forwarding_wa
                              |inst_srlv;
 
     // pc to reg1
-    assign sel_alu_src1[1] = inst_jal;
+    assign sel_alu_src1[1] = inst_jal|inst_bltzal|inst_bgezal|inst_jalr;
 
     // sa_zero_extend to reg1
     assign sel_alu_src1[2] = inst_sll|inst_sra|inst_srl;
@@ -293,14 +299,14 @@ assign stallreq_for_id=(ex_aluop &&((ex_forwarding_waddr==rs)||(ex_forwarding_wa
     assign sel_alu_src2[1] = inst_lui | inst_addiu|inst_sw|inst_lw|inst_slti|inst_sltiu|inst_addi ;
 
     // 32'b8 to reg2
-    assign sel_alu_src2[2] = inst_jal;
+    assign sel_alu_src2[2] = inst_jal|inst_bltzal|inst_bgezal|inst_jalr;
 
     // imm_zero_extend to reg2
     assign sel_alu_src2[3] = inst_ori|inst_andi|inst_xori;
 
 
 
-    assign op_add = inst_addiu|inst_jal|inst_addu|inst_sw|inst_lw|inst_add|inst_addi;
+    assign op_add = inst_addiu|inst_jal|inst_addu|inst_sw|inst_lw|inst_add|inst_addi|inst_bltzal|inst_bgezal|inst_jalr;
     assign op_sub = inst_subu|inst_sub;
     assign op_slt = inst_slt|inst_slti ;
     assign op_sltu = inst_sltu|inst_sltiu;
@@ -354,16 +360,19 @@ assign stallreq_for_id=(ex_aluop &&((ex_forwarding_waddr==rs)||(ex_forwarding_wa
                    |inst_sra
                    |inst_srav
                    |inst_srl
-                   |inst_srlv;
+                   |inst_srlv
+                   |inst_bltzal
+                   |inst_bgezal
+                   |inst_jalr;
 
 
 
     // store in [rd] 根据字段进行地址的写入，看写入的是rt还是rd
-    assign sel_rf_dst[0] = inst_subu|inst_addu|inst_sll|inst_or|inst_xor|inst_sltu|inst_slt|inst_add|inst_sub|inst_and|inst_nor|inst_sllv|inst_sra|inst_srav|inst_srl|inst_srlv;
+    assign sel_rf_dst[0] = inst_subu|inst_addu|inst_sll|inst_or|inst_xor|inst_sltu|inst_slt|inst_add|inst_sub|inst_and|inst_nor|inst_sllv|inst_sra|inst_srav|inst_srl|inst_srlv|inst_jalr;
     // store in [rt] 
     assign sel_rf_dst[1] = inst_ori | inst_lui | inst_addiu|inst_lw|inst_slti|inst_sltiu|inst_addi|inst_andi|inst_xori ;
     // store in [31]，31号寄存器固定用法，某些跳转指令会将地址传入这里
-    assign sel_rf_dst[2] = inst_jal;
+    assign sel_rf_dst[2] = inst_jal|inst_bltzal|inst_bgezal;
 
     // sel for regfile address
     assign rf_waddr = {5{sel_rf_dst[0]}} & rd 
@@ -402,13 +411,32 @@ assign stallreq_for_id=(ex_aluop &&((ex_forwarding_waddr==rs)||(ex_forwarding_wa
     assign pc_plus_4 = id_pc + 32'h4;
     assign rs_eq_rt = (r1 == r2);//beq判断，两个寄存器内容是否相同
     assign rs_neq_rt= (r1!= r2);
-    assign br_e = (inst_beq & rs_eq_rt)||inst_jal||inst_jr||(inst_bne & rs_neq_rt)|inst_j;
+    assign br_e = (inst_beq & rs_eq_rt)
+                 ||inst_jal
+                 ||inst_jr
+                 ||(inst_bne & rs_neq_rt)
+                 ||inst_j
+                 ||(inst_bgez&&(r1[31]==1'b0))
+                 ||(inst_bgtz&&(r1!=32'b0)&&(r1[31]==1'b0))
+                 ||(inst_blez&&((r1[31]!=1'b0)||r1==32'b0))
+                 ||(inst_bltz&&(r1[31]!=1'b0))
+                 ||(inst_bltzal&&(r1[31]!=1'b0))
+                 ||(inst_bgezal&&(r1[31]==1'b0))
+                 ||inst_jalr;
     //assign br_addr = inst_beq ? (pc_plus_4 + {{14{inst[15]}},inst[15:0],2'b0}) : 32'b0;
     assign br_addr = inst_beq ? (pc_plus_4 + {{14{inst[15]}},inst[15:0],2'b00}) : 
                       inst_jal?({pc_plus_4 [31:28],inst[25:0],2'b00}):
                       inst_jr?(r1):
                       inst_bne?(pc_plus_4+{{14{inst[15]}},{inst[15:0],2'b00}}):
-                      inst_j?({pc_plus_4 [31:28],inst[25:0],2'b00}):32'b0;//有疑问
+                      inst_j?({pc_plus_4 [31:28],inst[25:0],2'b00}):
+                      inst_bgez?(pc_plus_4 + {{14{inst[15]}},inst[15:0],2'b00}):
+                      inst_bgtz?(pc_plus_4 + {{14{inst[15]}},inst[15:0],2'b00}):
+                      inst_blez?(pc_plus_4 + {{14{inst[15]}},inst[15:0],2'b00}):
+                      inst_bltz?(pc_plus_4 + {{14{inst[15]}},inst[15:0],2'b00}):
+                      inst_bltzal?(pc_plus_4 + {{14{inst[15]}},inst[15:0],2'b00}):
+                      inst_bgezal?(pc_plus_4 + {{14{inst[15]}},inst[15:0],2'b00}):
+                      inst_jalr?(r1):
+                      32'b0;//有疑问
     assign br_bus = {
         br_e,
         br_addr
