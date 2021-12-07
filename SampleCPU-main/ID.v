@@ -82,15 +82,15 @@ module ID(
         ce,
         id_pc
     } = if_to_id_bus_r;
-    wire [63:0] wb_div_result;
-    wire [63:0] mem_div_result;
-    wire [63:0] ex_div_result;
-     wire  wb_div_flag;
-    wire  mem_div_flag;
-    wire  ex_div_flag;
+    wire [63:0] wb_div_mul_result;
+    wire [63:0] mem_div_mul_result;
+    wire [63:0] ex_div_mul_result;
+     wire  wb_div_mul_flag;
+    wire  mem_div_mul_flag;
+    wire  ex_div_mul_flag;
     assign {
-    wb_div_flag,
-     wb_div_result,
+    wb_div_mul_flag,
+     wb_div_mul_result,
         wb_rf_we,
         wb_rf_waddr,
         wb_rf_wdata
@@ -113,15 +113,15 @@ module ID(
     wire mem_lo;
     wire mem_hi;
  assign{
- ex_div_flag,
-  ex_div_result,
+ ex_div_mul_flag,
+  ex_div_mul_result,
     ex_forwarding_we,
     ex_forwarding_waddr,
     ex_forwarding_wdata
     }=ex_to_id_forwarding;
      assign{
-     mem_div_flag,
-    mem_div_result,
+     mem_div_mul_flag,
+    mem_div_mul_result,
     mem_forwarding_we,
     mem_forwarding_waddr,
     mem_forwarding_wdata
@@ -311,7 +311,8 @@ assign stallreq_for_id=(ex_aluop &&((ex_forwarding_waddr==rs)||(ex_forwarding_wa
                              |inst_sllv
                              |inst_srav
                              |inst_srlv
-                             |inst_mflo;
+                             |inst_mflo
+                             |inst_mult;
 
     // pc to reg1
     assign sel_alu_src1[1] = inst_jal|inst_bltzal|inst_bgezal|inst_jalr;
@@ -338,7 +339,8 @@ assign stallreq_for_id=(ex_aluop &&((ex_forwarding_waddr==rs)||(ex_forwarding_wa
                              |inst_srav
                              |inst_srl
                              |inst_srlv
-                             |inst_mfhi;
+                             |inst_mfhi
+                             |inst_mult;
     
     // imm_sign_extend to reg2
     assign sel_alu_src2[1] = inst_lui | inst_addiu|inst_sw|inst_lw|inst_slti|inst_sltiu|inst_addi ;
@@ -495,16 +497,16 @@ assign stallreq_for_id=(ex_aluop &&((ex_forwarding_waddr==rs)||(ex_forwarding_wa
     reg [31:0] HI;
     reg [31:0] LO;
     always @ (posedge clk) begin
-        if (wb_div_flag!=1'b0) begin
-           LO<= wb_div_result[31:0];
-           HI<= wb_div_result[63:32];
+        if (wb_div_mul_flag!=1'b0) begin
+           LO<= wb_div_mul_result[31:0];
+           HI<= wb_div_mul_result[63:32];
         end
     end
    
-   assign lo_r1 = ((ex_div_flag==1'b1)&&inst_mflo)?ex_div_result[31:0]:
-                (((mem_div_flag==1'b1)&&inst_mflo)?mem_div_result[31:0]:
-                (((wb_div_flag==1'b1)&&inst_mflo)?wb_div_result[31:0] : 32'b0));
-   assign hi_r2 =  ((ex_div_flag==1'b1)&&inst_mfhi)?ex_div_result[63:32]:
-                (((mem_div_flag==1'b1)&&inst_mfhi)?mem_div_result[63:32]:
-                (((wb_div_flag==1'b1)&&inst_mfhi)?wb_div_result[63:32] : 32'b0));
+   assign lo_r1 = ((ex_div_mul_flag==1'b1)&&inst_mflo)?ex_div_mul_result[31:0]:
+                (((mem_div_mul_flag==1'b1)&&inst_mflo)?mem_div_mul_result[31:0]:
+                (((wb_div_mul_flag==1'b1)&&inst_mflo)?wb_div_mul_result[31:0] : 32'b0));
+   assign hi_r2 =  ((ex_div_mul_flag==1'b1)&&inst_mfhi)?ex_div_mul_result[63:32]:
+                (((mem_div_mul_flag==1'b1)&&inst_mfhi)?mem_div_mul_result[63:32]:
+                (((wb_div_mul_flag==1'b1)&&inst_mfhi)?wb_div_mul_result[63:32] : 32'b0));
 endmodule

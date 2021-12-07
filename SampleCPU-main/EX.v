@@ -101,18 +101,22 @@ module EX(
     assign data_sram_wdata =rf_rdata2;
     
     
-//     // MUL part
-//    wire [63:0] mul_result;
-//    wire mul_signed; // 有符号乘法标记
-
-//    mul u_mul(
-//    	.clk        (clk            ),
-//        .resetn     (~rst           ),
-//        .mul_signed (mul_signed     ),
-//        .ina        (      ), // 乘法源操作数1
-//        .inb        (      ), // 乘法源操作数2
-//        .result     (mul_result     ) // 乘法结果 64bit
-//    );
+     // MUL part
+    wire [63:0] mul_result;
+    wire mul_signed; // 有符号乘法标记
+    wire inst_mult;
+    wire inst_multu;
+   assign inst_mult = ((inst[31:26] == 6'b000000) && (inst[5:0] == 6'b011000)&&(inst[15:6]==10'b0)) ? 1'b1 : 1'b0 ;
+   assign inst_multu = (inst[31:26] == 6'b000000) && (inst[5:0] == 6'b011001)&&(inst[15:6]==10'b0) ? 1'b1 : 1'b0 ;
+   assign mul_signed=inst_mult?1'b1:1'b0;
+    mul u_mul(
+    	.clk        (clk            ),
+        .resetn     (~rst           ),
+        .mul_signed (mul_signed     ),
+        .ina        (  alu_src1    ), // 乘法源操作数1
+        .inb        (  alu_src2    ), // 乘法源操作数2
+        .result     (mul_result     ) // 乘法结果 64bit
+    );
 
     // DIV part
     wire [63:0] div_result;
@@ -126,21 +130,7 @@ module EX(
     reg [31:0] div_opdata2_o;
     reg div_start_o;
     reg signed_div_o;
-//   always @ (posedge clk) begin
-//        if (rst) begin
-//            id_to_ex_bus_r <= `ID_TO_EX_WD'b0;
-            
-//        end
-//        // else if (flush) begin
-//        //     id_to_ex_bus_r <= `ID_TO_EX_WD'b0;
-//        // end
-//        else if (stall[2]==`Stop && stall[3]==`NoStop) begin
-//            id_to_ex_bus_r <= `ID_TO_EX_WD'b0;
-//        end
-//        else if (stall[2]==`NoStop) begin
-//            id_to_ex_bus_r <= id_to_ex_bus;
-//        end
-//    end
+
  
     div u_div(
     	.rst          (rst          ),
@@ -222,11 +212,15 @@ module EX(
     end
 
     // mul_result 和 div_result 可以直接使用
-    wire inst_div_or_divu;
-    assign inst_div_or_divu =inst_div||inst_divu;
+    wire inst_div_or_divu_or_mul;
+    assign inst_div_or_divu_or_mul =(inst_div||inst_divu)||(inst_mult||inst_multu);
+    wire [63:0]div_mul_result;
+    assign div_mul_result=(inst_div||inst_divu)?div_result:
+                           (inst_mult||inst_multu)?mul_result:
+                           64'b0;
     assign ex_to_mem_bus = {
-         inst_div_or_divu,
-          div_result,
+         inst_div_or_divu_or_mul,
+          div_mul_result,
         ex_pc,          // 75:44
         data_ram_en,    // 43
         data_ram_wen,   // 42:39
@@ -236,12 +230,11 @@ module EX(
         ex_result       // 31:0
     };
     
+ 
     
     assign ex_to_id_forwarding = {
-  
-  
-        inst_div_or_divu,
-         div_result,
+        inst_div_or_divu_or_mul,
+         div_mul_result,
         rf_we,          // 37
         rf_waddr,       // 36:32
         ex_result       // 31:0
