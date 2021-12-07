@@ -7,7 +7,7 @@ module EX(
 
     input wire [`ID_TO_EX_WD-1:0] id_to_ex_bus,
 
-    output wire [`EX_TO_MEM_WD-1:0] ex_to_mem_bus,
+    output wire [`EX_TO_MEM_WD-1+64+1:0] ex_to_mem_bus,
 
     output wire data_sram_en,
     output wire [3:0] data_sram_wen,
@@ -15,16 +15,17 @@ module EX(
     output wire [31:0] data_sram_wdata,
     
     
-     output wire [37:0] ex_to_id_forwarding,
+     output wire [37+64+1:0] ex_to_id_forwarding,
      output wire stallreq_for_ex,
      output wire ex_aluop//判断是否是load指令
 );
 
-    reg [`ID_TO_EX_WD-1:0] id_to_ex_bus_r;
-
+    reg [`ID_TO_EX_WD-1+64+1:0] id_to_ex_bus_r;
+    reg stallreq_for_div_r;
     always @ (posedge clk) begin
         if (rst) begin
             id_to_ex_bus_r <= `ID_TO_EX_WD'b0;
+            
         end
         // else if (flush) begin
         //     id_to_ex_bus_r <= `ID_TO_EX_WD'b0;
@@ -48,11 +49,12 @@ module EX(
     wire sel_rf_res;
     wire [31:0] rf_rdata1, rf_rdata2;
     reg is_in_delayslot;
-
+    wire inst_div, inst_divu;
     assign {
-        ex_pc,          // 148:117
-        inst,           // 116:85
-        alu_op,         // 84:83
+    
+        ex_pc,          // 148:127
+        inst,           // 126:95
+        alu_op,         // 94:83
         sel_alu_src1,   // 82:80
         sel_alu_src2,   // 79:76
         data_ram_en,    // 75
@@ -86,9 +88,145 @@ module EX(
         .alu_result  (alu_result  )
     );
 
-    assign ex_result = alu_result;
+    assign ex_result =((inst[31:16]==16'b0)&&(inst[5:0]==6'b010010))?rf_rdata1:
+                       ((inst[31:16]==16'b0)&&(inst[5:0]==6'b010000))?rf_rdata2:
+                              alu_result;
 
+ //assign ex_result =alu_result;
+    
+    assign ex_aluop=(data_ram_en&&(data_ram_wen==4'b0000))?1'b1:1'b0;
+    assign data_sram_addr =ex_result ;
+    assign data_sram_en =data_ram_en ;
+    assign data_sram_wen =data_ram_wen ;
+    assign data_sram_wdata =rf_rdata2;
+    
+    
+//     // MUL part
+//    wire [63:0] mul_result;
+//    wire mul_signed; // 有符号乘法标记
+
+//    mul u_mul(
+//    	.clk        (clk            ),
+//        .resetn     (~rst           ),
+//        .mul_signed (mul_signed     ),
+//        .ina        (      ), // 乘法源操作数1
+//        .inb        (      ), // 乘法源操作数2
+//        .result     (mul_result     ) // 乘法结果 64bit
+//    );
+
+    // DIV part
+    wire [63:0] div_result;
+   
+    wire div_ready_i;
+    reg stallreq_for_div;
+    assign stallreq_for_ex = stallreq_for_div;
+    assign inst_div = (inst[31:26] == 6'b000000) && (inst[5:0] == 6'b011010) ? 1'b1 : 1'b0 ;
+   assign inst_divu = (inst[31:26] == 6'b000000) && (inst[5:0] == 6'b011011) ? 1'b1 : 1'b0 ;
+    reg [31:0] div_opdata1_o;
+    reg [31:0] div_opdata2_o;
+    reg div_start_o;
+    reg signed_div_o;
+//   always @ (posedge clk) begin
+//        if (rst) begin
+//            id_to_ex_bus_r <= `ID_TO_EX_WD'b0;
+            
+//        end
+//        // else if (flush) begin
+//        //     id_to_ex_bus_r <= `ID_TO_EX_WD'b0;
+//        // end
+//        else if (stall[2]==`Stop && stall[3]==`NoStop) begin
+//            id_to_ex_bus_r <= `ID_TO_EX_WD'b0;
+//        end
+//        else if (stall[2]==`NoStop) begin
+//            id_to_ex_bus_r <= id_to_ex_bus;
+//        end
+//    end
+ 
+    div u_div(
+    	.rst          (rst          ),
+        .clk          (clk          ),
+        .signed_div_i (signed_div_o ),
+        .opdata1_i    (div_opdata1_o    ),
+        .opdata2_i    (div_opdata2_o    ),
+        .start_i      (div_start_o      ),
+        .annul_i      (1'b0      ),
+        .result_o     (div_result     ), // 除法结果 64bit
+        .ready_o      (div_ready_i      )
+    );
+
+    always @ (*) begin
+        if (rst) begin
+            stallreq_for_div = `NoStop;
+            div_opdata1_o = `ZeroWord;
+            div_opdata2_o = `ZeroWord;
+            div_start_o = `DivStop;
+            signed_div_o = 1'b0;
+        end
+        else begin
+            stallreq_for_div = `NoStop;
+            div_opdata1_o = `ZeroWord;
+            div_opdata2_o = `ZeroWord;
+            div_start_o = `DivStop;
+            signed_div_o = 1'b0;
+            case ({inst_div,inst_divu})
+                2'b10:begin
+                    if (div_ready_i == `DivResultNotReady) begin
+                        div_opdata1_o = rf_rdata1;
+                        div_opdata2_o = rf_rdata2;
+                        div_start_o = `DivStart;
+                        signed_div_o = 1'b1;
+                        stallreq_for_div = `Stop;
+                    end
+                    else if (div_ready_i == `DivResultReady) begin
+                        div_opdata1_o = rf_rdata1;
+                        div_opdata2_o = rf_rdata2;
+                        div_start_o = `DivStop;
+                        signed_div_o = 1'b1;
+                        stallreq_for_div = `NoStop;
+                    end
+                    else begin
+                        div_opdata1_o = `ZeroWord;
+                        div_opdata2_o = `ZeroWord;
+                        div_start_o = `DivStop;
+                        signed_div_o = 1'b0;
+                        stallreq_for_div = `NoStop;
+                    end
+                end
+                2'b01:begin
+                    if (div_ready_i == `DivResultNotReady) begin
+                        div_opdata1_o = rf_rdata1;
+                        div_opdata2_o = rf_rdata2;
+                        div_start_o = `DivStart;
+                        signed_div_o = 1'b0;
+                        stallreq_for_div = `Stop;
+                    end
+                    else if (div_ready_i == `DivResultReady) begin
+                        div_opdata1_o = rf_rdata1;
+                        div_opdata2_o = rf_rdata2;
+                        div_start_o = `DivStop;
+                        signed_div_o = 1'b0;
+                        stallreq_for_div = `NoStop;
+                    end
+                    else begin
+                        div_opdata1_o = `ZeroWord;
+                        div_opdata2_o = `ZeroWord;
+                        div_start_o = `DivStop;
+                        signed_div_o = 1'b0;
+                        stallreq_for_div = `NoStop;
+                    end
+                end
+                default:begin
+                end
+            endcase
+        end
+    end
+
+    // mul_result 和 div_result 可以直接使用
+    wire inst_div_or_divu;
+    assign inst_div_or_divu =inst_div||inst_divu;
     assign ex_to_mem_bus = {
+         inst_div_or_divu,
+          div_result,
         ex_pc,          // 75:44
         data_ram_en,    // 43
         data_ram_wen,   // 42:39
@@ -100,13 +238,12 @@ module EX(
     
     
     assign ex_to_id_forwarding = {
+  
+  
+        inst_div_or_divu,
+         div_result,
         rf_we,          // 37
         rf_waddr,       // 36:32
         ex_result       // 31:0
     };
-    assign ex_aluop=(data_ram_en&&(data_ram_wen==4'b0000))?1'b1:1'b0;
-    assign data_sram_addr =ex_result ;
-    assign data_sram_en =data_ram_en ;
-    assign data_sram_wen =data_ram_wen ;
-    assign data_sram_wdata =rf_rdata2;
 endmodule

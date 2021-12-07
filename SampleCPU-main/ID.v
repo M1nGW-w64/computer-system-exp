@@ -11,15 +11,15 @@ module ID(
 
     input wire [31:0] inst_sram_rdata,
 
-    input wire [`WB_TO_RF_WD-1:0] wb_to_rf_bus,
+    input wire [`WB_TO_RF_WD-1+64+1:0] wb_to_rf_bus,
 
-    output wire [`ID_TO_EX_WD-1:0] id_to_ex_bus,
+    output wire [`ID_TO_EX_WD-1+1:0] id_to_ex_bus,
 
     output wire [`BR_WD-1:0] br_bus ,
     
     
-    input wire [37:0] ex_to_id_forwarding,
-    input wire [37:0] mem_to_id_forwarding,
+    input wire [37+64+1:0] ex_to_id_forwarding,
+    input wire [37+64+1:0] mem_to_id_forwarding,
     output wire stallreq_for_id,
     input wire ex_aluop
 );
@@ -48,25 +48,49 @@ module ID(
             if_to_id_bus_r <= if_to_id_bus;
         end
     end
-    reg flag;
-    reg [31:0]inst_reg;
+    reg stall_flag;//暂存信号
+    reg [31:0]inst_reg;//临时存储rdata寄存器
+    reg stall_flag1;//暂存信号
+    reg [31:0]inst_reg1;//临时存储rdata寄存器
      always @ (posedge clk) begin
         if (stall[2]==`Stop && stall[3]==`NoStop) begin
-            flag <= 1'b1;
             inst_reg <= inst_sram_rdata;
+            stall_flag <= 1'b1;   
         end
+        
         else begin
-            flag <= 1'b0;
             inst_reg <= 32'b0;
+            stall_flag <= 1'b0;       
         end
     end
-    
-    assign inst = flag ? inst_reg : inst_sram_rdata ;
+    always @ (posedge clk) begin
+        if (stall[3]==`Stop && stall[4]==`NoStop && inst_reg1==32'b0) begin
+            inst_reg1 <= inst_sram_rdata;
+            stall_flag1 <= 1'b1;   
+        end
+        
+        else if(stall[3]==1'b0)begin
+            inst_reg1 <= 32'b0;
+            stall_flag1 <= 1'b0;       
+        end
+    end
+    assign inst = stall_flag1 ? inst_reg1 :
+    stall_flag ? inst_reg :
+     inst_sram_rdata ;
+    //在mem段传回内存真正的值时，ID段inst不能被改变，否则rs、rt会被篡改，导致mem传回的值没有解决问题，原inst被覆盖。
     assign {
         ce,
         id_pc
     } = if_to_id_bus_r;
+    wire [63:0] wb_div_result;
+    wire [63:0] mem_div_result;
+    wire [63:0] ex_div_result;
+     wire  wb_div_flag;
+    wire  mem_div_flag;
+    wire  ex_div_flag;
     assign {
+    wb_div_flag,
+     wb_div_result,
         wb_rf_we,
         wb_rf_waddr,
         wb_rf_wdata
@@ -84,12 +108,20 @@ module ID(
     
     wire [31:0]r1;
     wire [31:0]r2;
+    wire ex_lo;
+    wire ex_hi;
+    wire mem_lo;
+    wire mem_hi;
  assign{
+ ex_div_flag,
+  ex_div_result,
     ex_forwarding_we,
     ex_forwarding_waddr,
     ex_forwarding_wdata
     }=ex_to_id_forwarding;
      assign{
+     mem_div_flag,
+    mem_div_result,
     mem_forwarding_we,
     mem_forwarding_waddr,
     mem_forwarding_wdata
@@ -121,7 +153,10 @@ module ID(
     wire [2:0] sel_rf_dst;
 
     wire [31:0] rdata1, rdata2;
-
+   wire[31:0]rr1;
+wire [31:0] rr2;
+ wire[31:0]lo_r1;
+    wire[31:0]hi_r2;
     regfile u_regfile(
     	.clk    (clk    ),
         .raddr1 (rs ),
@@ -131,7 +166,7 @@ module ID(
         .we     (wb_rf_we     ),
         .waddr  (wb_rf_waddr  ),
         .wdata  (wb_rf_wdata  )
-
+        
     );
 
     assign opcode = inst[31:26];
@@ -146,6 +181,7 @@ module ID(
     assign base = inst[25:21];
     assign offset = inst[15:0];
     assign sel = inst[2:0];
+    
 //reg[31:0]r1,r2;
 //wire[31:0]rd1,rd2;
 // always @ (posedge clk) begin
@@ -244,6 +280,13 @@ assign stallreq_for_id=(ex_aluop &&((ex_forwarding_waddr==rs)||(ex_forwarding_wa
     assign inst_bltzal  =  (op_d[6'b00_0001]&&rt_d[5'b10_000]);
     assign inst_bgezal  =  (op_d[6'b00_0001]&&rt_d[5'b10_001]);
     assign inst_jalr    =  (op_d[6'b00_0000]&&rt_d[5'b00_000]&&func_d[6'b00_1001]);
+    assign inst_mfhi    =  (op_d[6'b00_0000]&&rs_d[5'b00_000]&&rt_d[5'b00_000]&&func_d[6'b01_0000]);
+    assign inst_mflo    =  (op_d[6'b00_0000]&&rs_d[5'b00_000]&&rt_d[5'b00_000]&&func_d[6'b01_0010]);
+    assign inst_mthi    =  (op_d[6'b00_0000]&&rt_d[5'b00_000]&&func_d[6'b01_0001]);
+    assign inst_mtlo    =  (op_d[6'b00_0000]&&rt_d[5'b00_000]&&func_d[6'b01_0011]);
+    assign inst_mult    =  (op_d[6'b00_0000]&&func_d[6'b01_1000]);
+    assign inst_div     =  (op_d[6'b00_0000]&&func_d[6'b01_1010]);
+    assign inst_divu     =  (op_d[6'b00_0000]&&func_d[6'b01_1011]);
     // rs to reg1 操作数一有三种可能
     assign sel_alu_src1[0] = inst_ori 
                              |inst_addiu
@@ -267,7 +310,8 @@ assign stallreq_for_id=(ex_aluop &&((ex_forwarding_waddr==rs)||(ex_forwarding_wa
                              |inst_xori
                              |inst_sllv
                              |inst_srav
-                             |inst_srlv;
+                             |inst_srlv
+                             |inst_mflo;
 
     // pc to reg1
     assign sel_alu_src1[1] = inst_jal|inst_bltzal|inst_bgezal|inst_jalr;
@@ -293,7 +337,8 @@ assign stallreq_for_id=(ex_aluop &&((ex_forwarding_waddr==rs)||(ex_forwarding_wa
                              |inst_sra
                              |inst_srav
                              |inst_srl
-                             |inst_srlv;
+                             |inst_srlv
+                             |inst_mfhi;
     
     // imm_sign_extend to reg2
     assign sel_alu_src2[1] = inst_lui | inst_addiu|inst_sw|inst_lw|inst_slti|inst_sltiu|inst_addi ;
@@ -304,7 +349,7 @@ assign stallreq_for_id=(ex_aluop &&((ex_forwarding_waddr==rs)||(ex_forwarding_wa
     // imm_zero_extend to reg2
     assign sel_alu_src2[3] = inst_ori|inst_andi|inst_xori;
 
-
+  
 
     assign op_add = inst_addiu|inst_jal|inst_addu|inst_sw|inst_lw|inst_add|inst_addi|inst_bltzal|inst_bgezal|inst_jalr;
     assign op_sub = inst_subu|inst_sub;
@@ -363,12 +408,15 @@ assign stallreq_for_id=(ex_aluop &&((ex_forwarding_waddr==rs)||(ex_forwarding_wa
                    |inst_srlv
                    |inst_bltzal
                    |inst_bgezal
-                   |inst_jalr;
+                   |inst_jalr
+                   |inst_mfhi
+                   |inst_mflo
+                   ;
 
 
 
     // store in [rd] 根据字段进行地址的写入，看写入的是rt还是rd
-    assign sel_rf_dst[0] = inst_subu|inst_addu|inst_sll|inst_or|inst_xor|inst_sltu|inst_slt|inst_add|inst_sub|inst_and|inst_nor|inst_sllv|inst_sra|inst_srav|inst_srl|inst_srlv|inst_jalr;
+    assign sel_rf_dst[0] = inst_subu|inst_addu|inst_sll|inst_or|inst_xor|inst_sltu|inst_slt|inst_add|inst_sub|inst_and|inst_nor|inst_sllv|inst_sra|inst_srav|inst_srl|inst_srlv|inst_jalr|inst_mfhi|inst_mflo;
     // store in [rt] 
     assign sel_rf_dst[1] = inst_ori | inst_lui | inst_addiu|inst_lw|inst_slti|inst_sltiu|inst_addi|inst_andi|inst_xori ;
     // store in [31]，31号寄存器固定用法，某些跳转指令会将地址传入这里
@@ -383,6 +431,7 @@ assign stallreq_for_id=(ex_aluop &&((ex_forwarding_waddr==rs)||(ex_forwarding_wa
     assign sel_rf_res = 1'b0; 
 
     assign id_to_ex_bus = {
+       
         id_pc,          // 158:127
         inst,           // 126:95
         alu_op,         // 94:83
@@ -393,12 +442,13 @@ assign stallreq_for_id=(ex_aluop &&((ex_forwarding_waddr==rs)||(ex_forwarding_wa
         rf_we,          // 70
         rf_waddr,       // 69:65
         sel_rf_res,     // 64
-        r1,         // 63:32
-        r2          // 31:0
+        rr1,         // 63:32
+        rr2          // 31:0
       
     };
 
-
+    assign rr1=(inst_mflo||inst_mfhi)?lo_r1:r1;
+     assign rr2=(inst_mflo||inst_mfhi)?hi_r2:r2;
     wire br_e;
     wire [31:0] br_addr;
     wire rs_eq_rt;
@@ -442,6 +492,19 @@ assign stallreq_for_id=(ex_aluop &&((ex_forwarding_waddr==rs)||(ex_forwarding_wa
         br_addr
     };
     
-
-
+    reg [31:0] HI;
+    reg [31:0] LO;
+    always @ (posedge clk) begin
+        if (wb_div_flag!=1'b0) begin
+           LO<= wb_div_result[31:0];
+           HI<= wb_div_result[63:32];
+        end
+    end
+   
+   assign lo_r1 = ((ex_div_flag==1'b1)&&inst_mflo)?ex_div_result[31:0]:
+                (((mem_div_flag==1'b1)&&inst_mflo)?mem_div_result[31:0]:
+                (((wb_div_flag==1'b1)&&inst_mflo)?wb_div_result[31:0] : 32'b0));
+   assign hi_r2 =  ((ex_div_flag==1'b1)&&inst_mfhi)?ex_div_result[63:32]:
+                (((mem_div_flag==1'b1)&&inst_mfhi)?mem_div_result[63:32]:
+                (((wb_div_flag==1'b1)&&inst_mfhi)?wb_div_result[63:32] : 32'b0));
 endmodule

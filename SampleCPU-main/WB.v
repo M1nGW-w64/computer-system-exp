@@ -5,9 +5,9 @@ module WB(
     // input wire flush,
     input wire [`StallBus-1:0] stall,
 
-    input wire [`MEM_TO_WB_WD-1:0] mem_to_wb_bus,
+    input wire [`MEM_TO_WB_WD-1+64+1:0] mem_to_wb_bus,
 
-    output wire [`WB_TO_RF_WD-1:0] wb_to_rf_bus,
+    output wire [`WB_TO_RF_WD-1+64+1:0] wb_to_rf_bus,
 
     output wire [31:0] debug_wb_pc,
     output wire [3:0] debug_wb_rf_wen,
@@ -15,7 +15,7 @@ module WB(
     output wire [31:0] debug_wb_rf_wdata 
 );
 
-    reg [`MEM_TO_WB_WD-1:0] mem_to_wb_bus_r;
+    reg [`MEM_TO_WB_WD-1+64+1:0] mem_to_wb_bus_r;
 
     always @ (posedge clk) begin
         if (rst) begin
@@ -36,8 +36,10 @@ module WB(
     wire rf_we;
     wire [4:0] rf_waddr;
     wire [31:0] rf_wdata;
-
+   wire [63:0] div_result;
     assign {
+    inst_div,
+        div_result,
         wb_pc,
         rf_we,
         rf_waddr,
@@ -46,6 +48,8 @@ module WB(
 
     // assign wb_to_rf_bus = mem_to_wb_bus_r[`WB_TO_RF_WD-1:0];
     assign wb_to_rf_bus = {
+    inst_div,
+      div_result,
         rf_we,
         rf_waddr,
         rf_wdata
