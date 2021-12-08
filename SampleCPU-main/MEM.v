@@ -5,16 +5,16 @@ module MEM(
     // input wire flush,
     input wire [`StallBus-1:0] stall,
 
-    input wire [`EX_TO_MEM_WD-1+64+1:0] ex_to_mem_bus,
+    input wire [`EX_TO_MEM_WD-1+64+1+2:0] ex_to_mem_bus,
     input wire [31:0] data_sram_rdata,
 
-    output wire [`MEM_TO_WB_WD-1+64+1:0] mem_to_wb_bus,
+    output wire [`MEM_TO_WB_WD-1+64+1+2:0] mem_to_wb_bus,
     
     
-    output wire [37+64+1:0] mem_to_id_forwarding
+    output wire [37+64+1+2:0] mem_to_id_forwarding
 );
 
-    reg [`EX_TO_MEM_WD-1+64+1:0] ex_to_mem_bus_r;
+    reg [`EX_TO_MEM_WD-1+64+1+2:0] ex_to_mem_bus_r;
 
     always @ (posedge clk) begin
         if (rst) begin
@@ -42,7 +42,11 @@ module MEM(
     wire [31:0] mem_result;
     wire [63:0] div_mul_result;
     wire inst_div_or_divu_or_mul;
+    wire lo_wen;
+    wire hi_wen;
     assign {
+     lo_wen,
+         hi_wen,
     inst_div_or_divu_or_mul,
       div_mul_result,
         mem_pc,         // 75:44
@@ -59,6 +63,8 @@ module MEM(
     assign rf_wdata = (data_ram_wen==4'b0000&&data_ram_en==1'b1)?data_sram_rdata:sel_rf_res ? mem_result : ex_result;
 //    assign rf_wdata = sel_rf_res ? mem_result : ex_result;
     assign mem_to_wb_bus = {
+     lo_wen,
+         hi_wen,
     inst_div_or_divu_or_mul,
        div_mul_result,
         mem_pc,     // 41:38
@@ -69,6 +75,8 @@ module MEM(
     
     
 assign mem_to_id_forwarding = {
+ lo_wen,
+         hi_wen,
         inst_div_or_divu_or_mul,
         div_mul_result,
         rf_we,      // 37

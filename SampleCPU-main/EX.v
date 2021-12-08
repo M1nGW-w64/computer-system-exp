@@ -7,7 +7,7 @@ module EX(
 
     input wire [`ID_TO_EX_WD-1:0] id_to_ex_bus,
 
-    output wire [`EX_TO_MEM_WD-1+64+1:0] ex_to_mem_bus,
+    output wire [`EX_TO_MEM_WD-1+64+1+2:0] ex_to_mem_bus,
 
     output wire data_sram_en,
     output wire [3:0] data_sram_wen,
@@ -15,12 +15,12 @@ module EX(
     output wire [31:0] data_sram_wdata,
     
     
-     output wire [37+64+1:0] ex_to_id_forwarding,
+     output wire [37+64+1+2:0] ex_to_id_forwarding,
      output wire stallreq_for_ex,
      output wire ex_aluop//≈–∂œ «∑Ò «load÷∏¡Ó
 );
 
-    reg [`ID_TO_EX_WD-1+64+1:0] id_to_ex_bus_r;
+    reg [`ID_TO_EX_WD-1+64+1+2:0] id_to_ex_bus_r;
     reg stallreq_for_div_r;
     always @ (posedge clk) begin
         if (rst) begin
@@ -50,6 +50,9 @@ module EX(
     wire [31:0] rf_rdata1, rf_rdata2;
     reg is_in_delayslot;
     wire inst_div, inst_divu;
+    wire inst_mtlo,inst_mthi;
+    wire lo_wen;
+    wire hi_wen;
     assign {
     
         ex_pc,          // 148:127
@@ -87,7 +90,8 @@ module EX(
         .alu_src2    (alu_src2    ),
         .alu_result  (alu_result  )
     );
-
+   assign inst_mtlo=((inst[31:26] == 6'b000000) && (inst[5:0] == 6'b010011)&&(inst[20:6]==15'b0)) ? 1'b1 : 1'b0 ;
+   assign inst_mthi=((inst[31:26] == 6'b000000) && (inst[5:0] == 6'b010001)&&(inst[20:6]==15'b0)) ? 1'b1 : 1'b0 ;
     assign ex_result =((inst[31:16]==16'b0)&&(inst[5:0]==6'b010010))?rf_rdata1:
                        ((inst[31:16]==16'b0)&&(inst[5:0]==6'b010000))?rf_rdata2:
                               alu_result;
@@ -217,8 +221,18 @@ module EX(
     wire [63:0]div_mul_result;
     assign div_mul_result=(inst_div||inst_divu)?div_result:
                            (inst_mult||inst_multu)?mul_result:
+                           (inst_mtlo)?{32'b0, rf_rdata1}:
+                           (inst_mthi)?{ rf_rdata1,32'b0}:
                            64'b0;
+//  assign lo_wen=(inst_div||inst_divu||inst_mult||inst_multu)?1'b1:
+//                   inst_mtlo?1'b1:1'b0;
+//   assign hi_wen=(inst_div||inst_divu||inst_mult||inst_multu)?1'b1:
+//                   inst_mthi?1'b1:1'b0;
+assign lo_wen=inst_mtlo?1'b1:1'b0;
+assign hi_wen=inst_mthi?1'b1:1'b0;
     assign ex_to_mem_bus = {
+         lo_wen,
+         hi_wen,
          inst_div_or_divu_or_mul,
           div_mul_result,
         ex_pc,          // 75:44
@@ -233,6 +247,8 @@ module EX(
  
     
     assign ex_to_id_forwarding = {
+     lo_wen,
+         hi_wen,
         inst_div_or_divu_or_mul,
          div_mul_result,
         rf_we,          // 37
