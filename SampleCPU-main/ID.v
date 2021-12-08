@@ -301,7 +301,9 @@ assign stallreq_for_id=(ex_aluop &&((ex_forwarding_waddr==rs)||(ex_forwarding_wa
     assign inst_div     =  (op_d[6'b00_0000]&&func_d[6'b01_1010]);
     assign inst_divu     =  (op_d[6'b00_0000]&&func_d[6'b01_1011]);
     assign inst_lb     =  op_d[6'b10_0000];
-    
+    assign inst_lbu     =  op_d[6'b10_0100];
+    assign inst_lh     =  op_d[6'b10_0001];
+    assign inst_lhu     =  op_d[6'b10_0101];
     // rs to reg1 操作数一有三种可能
     assign sel_alu_src1[0] = inst_ori 
                              |inst_addiu
@@ -330,7 +332,10 @@ assign stallreq_for_id=(ex_aluop &&((ex_forwarding_waddr==rs)||(ex_forwarding_wa
                              |inst_mult
                              |inst_mtlo
                              |inst_mthi
-                             |inst_lb;
+                             |inst_lb
+                             |inst_lbu
+                             |inst_lh
+                             |inst_lhu;
 
     // pc to reg1
     assign sel_alu_src1[1] = inst_jal|inst_bltzal|inst_bgezal|inst_jalr;
@@ -361,7 +366,7 @@ assign stallreq_for_id=(ex_aluop &&((ex_forwarding_waddr==rs)||(ex_forwarding_wa
                              |inst_mult;
     
     // imm_sign_extend to reg2
-    assign sel_alu_src2[1] = inst_lui | inst_addiu|inst_sw|inst_lw|inst_slti|inst_sltiu|inst_addi|inst_lb ;
+    assign sel_alu_src2[1] = inst_lui | inst_addiu|inst_sw|inst_lw|inst_slti|inst_sltiu|inst_addi|inst_lb|inst_lbu|inst_lh|inst_lhu ;
 
     // 32'b8 to reg2
     assign sel_alu_src2[2] = inst_jal|inst_bltzal|inst_bgezal|inst_jalr;
@@ -371,7 +376,7 @@ assign stallreq_for_id=(ex_aluop &&((ex_forwarding_waddr==rs)||(ex_forwarding_wa
 
   
 
-    assign op_add = inst_addiu|inst_jal|inst_addu|inst_sw|inst_lw|inst_add|inst_addi|inst_bltzal|inst_bgezal|inst_jalr|inst_lb;
+    assign op_add = inst_addiu|inst_jal|inst_addu|inst_sw|inst_lw|inst_add|inst_addi|inst_bltzal|inst_bgezal|inst_jalr|inst_lb|inst_lbu|inst_lh|inst_lhu;
     assign op_sub = inst_subu|inst_sub;
     assign op_slt = inst_slt|inst_slti ;
     assign op_sltu = inst_sltu|inst_sltiu;
@@ -391,11 +396,11 @@ assign stallreq_for_id=(ex_aluop &&((ex_forwarding_waddr==rs)||(ex_forwarding_wa
 
 
     // load and store enable
-    assign data_ram_en = inst_sw|inst_lw|inst_lb;
+    assign data_ram_en = inst_sw|inst_lw|inst_lb|inst_lbu|inst_lh|inst_lhu;
 
     // write enable全1为写，全0为读
     assign data_ram_wen = inst_sw?4'b1111:
-                           (inst_lw||inst_lb)?4'b0000:4'b0000;
+                           (inst_lw||inst_lb||inst_lbu||inst_lh||inst_lhu)?4'b0000:4'b0000;
 
 
 
@@ -432,6 +437,9 @@ assign stallreq_for_id=(ex_aluop &&((ex_forwarding_waddr==rs)||(ex_forwarding_wa
                    |inst_mfhi
                    |inst_mflo
                    |inst_lb
+                   |inst_lbu
+                   |inst_lh
+                   |inst_lhu
                    ;
 
 
@@ -439,7 +447,7 @@ assign stallreq_for_id=(ex_aluop &&((ex_forwarding_waddr==rs)||(ex_forwarding_wa
     // store in [rd] 根据字段进行地址的写入，看写入的是rt还是rd
     assign sel_rf_dst[0] = inst_subu|inst_addu|inst_sll|inst_or|inst_xor|inst_sltu|inst_slt|inst_add|inst_sub|inst_and|inst_nor|inst_sllv|inst_sra|inst_srav|inst_srl|inst_srlv|inst_jalr|inst_mfhi|inst_mflo;
     // store in [rt] 
-    assign sel_rf_dst[1] = inst_ori | inst_lui | inst_addiu|inst_lw|inst_slti|inst_sltiu|inst_addi|inst_andi|inst_xori|inst_lb ;
+    assign sel_rf_dst[1] = inst_ori | inst_lui | inst_addiu|inst_lw|inst_slti|inst_sltiu|inst_addi|inst_andi|inst_xori|inst_lb|inst_lbu|inst_lh|inst_lhu ;
     // store in [31]，31号寄存器固定用法，某些跳转指令会将地址传入这里
     assign sel_rf_dst[2] = inst_jal|inst_bltzal|inst_bgezal;
 

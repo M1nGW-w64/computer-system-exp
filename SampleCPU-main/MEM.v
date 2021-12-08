@@ -65,10 +65,15 @@ module MEM(
                        (load_select==4'b1001&&ex_result[1:0]==2'b01)?{{24{data_sram_rdata[15]}},data_sram_rdata[15:8]}:
                        (load_select==4'b1001&&ex_result[1:0]==2'b10)?{{24{data_sram_rdata[23]}},data_sram_rdata[23:16]}:
                        (load_select==4'b1001&&ex_result[1:0]==2'b11)?{{24{data_sram_rdata[31]}},data_sram_rdata[31:24]}:
-                       (load_select==4'b0001)?{24'b0,data_sram_rdata[7:0]}:
-                       (load_select==4'b0011)?{16'b0,data_sram_rdata[15:0]}:
-                       (load_select==4'b1011)?{{16{data_sram_rdata[15]}},data_sram_rdata[15:0]}:
-                       data_sram_rdata;
+                         (load_select==4'b0001&&ex_result[1:0]==2'b00)?{24'b0,data_sram_rdata[7:0]}:
+                         (load_select==4'b0001&&ex_result[1:0]==2'b01)?{24'b0,data_sram_rdata[15:8]}:
+                         (load_select==4'b0001&&ex_result[1:0]==2'b10)?{24'b0,data_sram_rdata[23:16]}:
+                         (load_select==4'b0001&&ex_result[1:0]==2'b11)?{24'b0,data_sram_rdata[31:24]}:
+                           (load_select==4'b0011&&ex_result[1:0]==2'b00)?{16'b0,data_sram_rdata[15:0]}:
+                           (load_select==4'b0011&&ex_result[1:0]==2'b10)?{16'b0,data_sram_rdata[31:16]}:
+                             (load_select==4'b1011&&ex_result[1:0]==2'b00)?{{16{data_sram_rdata[15]}},data_sram_rdata[15:0]}:
+                             (load_select==4'b1011&&ex_result[1:0]==2'b10)?{{16{data_sram_rdata[31]}},data_sram_rdata[31:16]}:
+                               data_sram_rdata;
 
     assign rf_wdata = (data_ram_wen==4'b0000&&data_ram_en==1'b1)?load_deal:sel_rf_res ? mem_result : ex_result;
 //    assign rf_wdata = sel_rf_res ? mem_result : ex_result;
