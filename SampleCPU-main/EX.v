@@ -7,7 +7,7 @@ module EX(
 
     input wire [`ID_TO_EX_WD-1:0] id_to_ex_bus,
 
-    output wire [`EX_TO_MEM_WD-1+64+1+2:0] ex_to_mem_bus,
+    output wire [`EX_TO_MEM_WD-1+64+1+2+4:0] ex_to_mem_bus,
 
     output wire data_sram_en,
     output wire [3:0] data_sram_wen,
@@ -230,7 +230,15 @@ module EX(
 //                   inst_mthi?1'b1:1'b0;
 assign lo_wen=inst_mtlo?1'b1:1'b0;
 assign hi_wen=inst_mthi?1'b1:1'b0;
+wire[3:0] load_select;
+assign load_select=(inst[31:26]==6'b100011)?4'b0000://LW
+                    (inst[31:26]==6'b100000)?4'b1001://ÓÐ·ûºÅLB
+                    (inst[31:26]==6'b100100)?4'b0001://ÎÞ·ûºÅLBU
+                    (inst[31:26]==6'b100001)?4'b1011://LH
+                    (inst[31:26]==6'b100101)?4'b0011://LHU
+                    4'b0000;
     assign ex_to_mem_bus = {
+         load_select,
          lo_wen,
          hi_wen,
          inst_div_or_divu_or_mul,
