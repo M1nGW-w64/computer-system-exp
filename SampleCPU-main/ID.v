@@ -304,6 +304,9 @@ assign stallreq_for_id=(ex_aluop &&((ex_forwarding_waddr==rs)||(ex_forwarding_wa
     assign inst_lbu     =  op_d[6'b10_0100];
     assign inst_lh     =  op_d[6'b10_0001];
     assign inst_lhu     =  op_d[6'b10_0101];
+    assign inst_sb     =  op_d[6'b10_1000];
+    assign inst_sh     =  op_d[6'b10_1001];
+    
     // rs to reg1 操作数一有三种可能
     assign sel_alu_src1[0] = inst_ori 
                              |inst_addiu
@@ -335,7 +338,9 @@ assign stallreq_for_id=(ex_aluop &&((ex_forwarding_waddr==rs)||(ex_forwarding_wa
                              |inst_lb
                              |inst_lbu
                              |inst_lh
-                             |inst_lhu;
+                             |inst_lhu
+                             |inst_sb
+                             |inst_sh ;
 
     // pc to reg1
     assign sel_alu_src1[1] = inst_jal|inst_bltzal|inst_bgezal|inst_jalr;
@@ -366,7 +371,7 @@ assign stallreq_for_id=(ex_aluop &&((ex_forwarding_waddr==rs)||(ex_forwarding_wa
                              |inst_mult;
     
     // imm_sign_extend to reg2
-    assign sel_alu_src2[1] = inst_lui | inst_addiu|inst_sw|inst_lw|inst_slti|inst_sltiu|inst_addi|inst_lb|inst_lbu|inst_lh|inst_lhu ;
+    assign sel_alu_src2[1] = inst_lui | inst_addiu|inst_sw|inst_lw|inst_slti|inst_sltiu|inst_addi|inst_lb|inst_lbu|inst_lh|inst_lhu|inst_sb|inst_sh  ;
 
     // 32'b8 to reg2
     assign sel_alu_src2[2] = inst_jal|inst_bltzal|inst_bgezal|inst_jalr;
@@ -376,7 +381,7 @@ assign stallreq_for_id=(ex_aluop &&((ex_forwarding_waddr==rs)||(ex_forwarding_wa
 
   
 
-    assign op_add = inst_addiu|inst_jal|inst_addu|inst_sw|inst_lw|inst_add|inst_addi|inst_bltzal|inst_bgezal|inst_jalr|inst_lb|inst_lbu|inst_lh|inst_lhu;
+    assign op_add = inst_addiu|inst_jal|inst_addu|inst_sw|inst_lw|inst_add|inst_addi|inst_bltzal|inst_bgezal|inst_jalr|inst_lb|inst_lbu|inst_lh|inst_lhu|inst_sb|inst_sh ;
     assign op_sub = inst_subu|inst_sub;
     assign op_slt = inst_slt|inst_slti ;
     assign op_sltu = inst_sltu|inst_sltiu;
@@ -396,10 +401,10 @@ assign stallreq_for_id=(ex_aluop &&((ex_forwarding_waddr==rs)||(ex_forwarding_wa
 
 
     // load and store enable
-    assign data_ram_en = inst_sw|inst_lw|inst_lb|inst_lbu|inst_lh|inst_lhu;
+    assign data_ram_en = inst_sw|inst_lw|inst_lb|inst_lbu|inst_lh|inst_lhu|inst_sb|inst_sh ;
 
     // write enable全1为写，全0为读
-    assign data_ram_wen = inst_sw?4'b1111:
+    assign data_ram_wen = (inst_sw||inst_sb||inst_sh)?4'b1111:
                            (inst_lw||inst_lb||inst_lbu||inst_lh||inst_lhu)?4'b0000:4'b0000;
 
 

@@ -97,12 +97,36 @@ module EX(
                               alu_result;
 
  //assign ex_result =alu_result;
-    
+  wire[3:0] load_select;
+assign load_select=(inst[31:26]==6'b100011)?4'b0000://LW
+                    (inst[31:26]==6'b100000)?4'b1001://ÓÐ·ûºÅLB
+                    (inst[31:26]==6'b100100)?4'b0001://ÎÞ·ûºÅLBU
+                    (inst[31:26]==6'b100001)?4'b1011://LH
+                    (inst[31:26]==6'b100101)?4'b0011://LHU
+                    4'b0000;
+wire [31:0] store_select;
+assign store_select=(inst[31:26]==6'b101011&&data_ram_wen==4'b1111)?4'b1111://SW
+                    (inst[31:26]==6'b101000&&data_ram_wen==4'b1111&&ex_result[1:0]==2'b00)?4'b0001://SB
+                    (inst[31:26]==6'b101000&&data_ram_wen==4'b1111&&ex_result[1:0]==2'b01)?4'b0010://SB
+                    (inst[31:26]==6'b101000&&data_ram_wen==4'b1111&&ex_result[1:0]==2'b10)?4'b0100://SB
+                    (inst[31:26]==6'b101000&&data_ram_wen==4'b1111&&ex_result[1:0]==2'b11)?4'b1000://SB
+                    (inst[31:26]==6'b101001&&data_ram_wen==4'b1111&&ex_result[1:0]==2'b10)?4'b1100://SH
+                    (inst[31:26]==6'b101001&&data_ram_wen==4'b1111&&ex_result[1:0]==2'b00)?4'b0011://SH
+                    4'b0000; 
+wire [31:0] store_data;
+assign store_data=(inst[31:26]==6'b101011)?rf_rdata2:
+                   (ex_result[1:0]==2'b00&&inst[31:26]==6'b101000)?{4{rf_rdata2[7:0]}}:
+                   (ex_result[1:0]==2'b01&&inst[31:26]==6'b101000)?{4{rf_rdata2[7:0]}}:
+                   (ex_result[1:0]==2'b10&&inst[31:26]==6'b101000)?{4{rf_rdata2[7:0]}}:
+                   (ex_result[1:0]==2'b11&&inst[31:26]==6'b101000)?{4{rf_rdata2[7:0]}}:
+                   (ex_result[1:0]==2'b00&&inst[31:26]==6'b101001)?{2{rf_rdata2[15:0]}}:
+                   (ex_result[1:0]==2'b10&&inst[31:26]==6'b101001)?{2{rf_rdata2[15:0]}}:
+                   rf_rdata2;
     assign ex_aluop=(data_ram_en&&(data_ram_wen==4'b0000))?1'b1:1'b0;
     assign data_sram_addr =ex_result ;
     assign data_sram_en =data_ram_en ;
-    assign data_sram_wen =data_ram_wen ;
-    assign data_sram_wdata =rf_rdata2;
+    assign data_sram_wen =store_select ;
+    assign data_sram_wdata =store_data;
     
     
      // MUL part
@@ -230,13 +254,7 @@ module EX(
 //                   inst_mthi?1'b1:1'b0;
 assign lo_wen=inst_mtlo?1'b1:1'b0;
 assign hi_wen=inst_mthi?1'b1:1'b0;
-wire[3:0] load_select;
-assign load_select=(inst[31:26]==6'b100011)?4'b0000://LW
-                    (inst[31:26]==6'b100000)?4'b1001://ÓÐ·ûºÅLB
-                    (inst[31:26]==6'b100100)?4'b0001://ÎÞ·ûºÅLBU
-                    (inst[31:26]==6'b100001)?4'b1011://LH
-                    (inst[31:26]==6'b100101)?4'b0011://LHU
-                    4'b0000;
+
     assign ex_to_mem_bus = {
          load_select,
          lo_wen,
