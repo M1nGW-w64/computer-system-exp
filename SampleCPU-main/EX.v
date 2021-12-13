@@ -129,117 +129,40 @@ assign store_data=(inst[31:26]==6'b101011)?rf_rdata2:
     assign data_sram_wdata =store_data;
     
     
-     // MUL part
+    
+    wire DivOrMul;
     wire [63:0] mul_result;
-    wire mul_signed; // 有符号乘法标记
+    wire [63:0] div_result;
     wire inst_mult;
     wire inst_multu;
+    wire [31:0]data1;
+    wire [31:0]data2;
+    wire signed_flag;
    assign inst_mult = ((inst[31:26] == 6'b000000) && (inst[5:0] == 6'b011000)&&(inst[15:6]==10'b0)) ? 1'b1 : 1'b0 ;
    assign inst_multu = (inst[31:26] == 6'b000000) && (inst[5:0] == 6'b011001)&&(inst[15:6]==10'b0) ? 1'b1 : 1'b0 ;
-   assign mul_signed=inst_mult?1'b1:1'b0;
-    mul u_mul(
-    	.clk        (clk            ),
-        .resetn     (~rst           ),
-        .mul_signed (mul_signed     ),
-        .ina        (  alu_src1    ), // 乘法源操作数1
-        .inb        (  alu_src2    ), // 乘法源操作数2
-        .result     (mul_result     ) // 乘法结果 64bit
-    );
-
-    // DIV part
-    wire [63:0] div_result;
-   
-    wire div_ready_i;
-    reg stallreq_for_div;
-    assign stallreq_for_ex = stallreq_for_div;
-    assign inst_div = (inst[31:26] == 6'b000000) && (inst[5:0] == 6'b011010) ? 1'b1 : 1'b0 ;
+   assign inst_div = (inst[31:26] == 6'b000000) && (inst[5:0] == 6'b011010) ? 1'b1 : 1'b0 ;
    assign inst_divu = (inst[31:26] == 6'b000000) && (inst[5:0] == 6'b011011) ? 1'b1 : 1'b0 ;
-    reg [31:0] div_opdata1_o;
-    reg [31:0] div_opdata2_o;
-    reg div_start_o;
-    reg signed_div_o;
-
- 
-    div u_div(
-    	.rst          (rst          ),
+   assign DivOrMul=(inst_div||inst_divu)?1'b1:(inst_mult||inst_multu)?1'b0:1'b0;
+   assign data1=DivOrMul?rf_rdata1:alu_src1;
+   assign data2=DivOrMul?rf_rdata2:alu_src2;
+   assign signed_flag=(inst_div||inst_mult)?1'b1:(inst_divu||inst_multu)?1'b0:1'b0;        
+       
+ mul_div u_mul_div(
         .clk          (clk          ),
-        .signed_div_i (signed_div_o ),
-        .opdata1_i    (div_opdata1_o    ),
-        .opdata2_i    (div_opdata2_o    ),
-        .start_i      (div_start_o      ),
-        .annul_i      (1'b0      ),
-        .result_o     (div_result     ), // 除法结果 64bit
-        .ready_o      (div_ready_i      )
+    	.rst          (rst          ),
+        .signed_flag (signed_flag ),
+        .data1    (data1    ),
+        .data2    (data2    ),
+        .DivOrMul      (DivOrMul      ),
+        .inst_mult(inst_mult),
+        .inst_multu(inst_multu),
+        .inst_div(inst_div),
+        .inst_divu(inst_divu),
+        .mul_result      (mul_result      ),
+        .div_result     (div_result     ), // 除法结果 64bit
+        .stallreq_for_ex      (stallreq_for_ex      )
     );
 
-    always @ (*) begin
-        if (rst) begin
-            stallreq_for_div = `NoStop;
-            div_opdata1_o = `ZeroWord;
-            div_opdata2_o = `ZeroWord;
-            div_start_o = `DivStop;
-            signed_div_o = 1'b0;
-        end
-        else begin
-            stallreq_for_div = `NoStop;
-            div_opdata1_o = `ZeroWord;
-            div_opdata2_o = `ZeroWord;
-            div_start_o = `DivStop;
-            signed_div_o = 1'b0;
-            case ({inst_div,inst_divu})
-                2'b10:begin
-                    if (div_ready_i == `DivResultNotReady) begin
-                        div_opdata1_o = rf_rdata1;
-                        div_opdata2_o = rf_rdata2;
-                        div_start_o = `DivStart;
-                        signed_div_o = 1'b1;
-                        stallreq_for_div = `Stop;
-                    end
-                    else if (div_ready_i == `DivResultReady) begin
-                        div_opdata1_o = rf_rdata1;
-                        div_opdata2_o = rf_rdata2;
-                        div_start_o = `DivStop;
-                        signed_div_o = 1'b1;
-                        stallreq_for_div = `NoStop;
-                    end
-                    else begin
-                        div_opdata1_o = `ZeroWord;
-                        div_opdata2_o = `ZeroWord;
-                        div_start_o = `DivStop;
-                        signed_div_o = 1'b0;
-                        stallreq_for_div = `NoStop;
-                    end
-                end
-                2'b01:begin
-                    if (div_ready_i == `DivResultNotReady) begin
-                        div_opdata1_o = rf_rdata1;
-                        div_opdata2_o = rf_rdata2;
-                        div_start_o = `DivStart;
-                        signed_div_o = 1'b0;
-                        stallreq_for_div = `Stop;
-                    end
-                    else if (div_ready_i == `DivResultReady) begin
-                        div_opdata1_o = rf_rdata1;
-                        div_opdata2_o = rf_rdata2;
-                        div_start_o = `DivStop;
-                        signed_div_o = 1'b0;
-                        stallreq_for_div = `NoStop;
-                    end
-                    else begin
-                        div_opdata1_o = `ZeroWord;
-                        div_opdata2_o = `ZeroWord;
-                        div_start_o = `DivStop;
-                        signed_div_o = 1'b0;
-                        stallreq_for_div = `NoStop;
-                    end
-                end
-                default:begin
-                end
-            endcase
-        end
-    end
-
-    // mul_result 和 div_result 可以直接使用
     wire inst_div_or_divu_or_mul;
     assign inst_div_or_divu_or_mul =(inst_div||inst_divu)||(inst_mult||inst_multu);
     wire [63:0]div_mul_result;
