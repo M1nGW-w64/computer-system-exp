@@ -46,11 +46,11 @@ module MEM(
     wire hi_wen;
     wire[3:0] load_select;
     assign {
-    load_select,
-     lo_wen,
-         hi_wen,
-    inst_div_or_divu_or_mul,
-      div_mul_result,
+        load_select,
+        lo_wen,
+        hi_wen,
+        inst_div_or_divu_or_mul,
+        div_mul_result,
         mem_pc,         // 75:44
         data_ram_en,    // 43
         data_ram_wen,   // 42:39
@@ -74,14 +74,13 @@ module MEM(
                              (load_select==4'b1011&&ex_result[1:0]==2'b00)?{{16{data_sram_rdata[15]}},data_sram_rdata[15:0]}:
                              (load_select==4'b1011&&ex_result[1:0]==2'b10)?{{16{data_sram_rdata[31]}},data_sram_rdata[31:16]}:
                                data_sram_rdata;
-
     assign rf_wdata = (data_ram_wen==4'b0000&&data_ram_en==1'b1)?load_deal:sel_rf_res ? mem_result : ex_result;
 //    assign rf_wdata = sel_rf_res ? mem_result : ex_result;
     assign mem_to_wb_bus = {
-     lo_wen,
+         lo_wen,
          hi_wen,
-    inst_div_or_divu_or_mul,
-       div_mul_result,
+         inst_div_or_divu_or_mul,
+         div_mul_result,
         mem_pc,     // 41:38
         rf_we,      // 37
         rf_waddr,   // 36:32
@@ -90,7 +89,7 @@ module MEM(
     
     
 assign mem_to_id_forwarding = {
- lo_wen,
+        lo_wen,
          hi_wen,
         inst_div_or_divu_or_mul,
         div_mul_result,

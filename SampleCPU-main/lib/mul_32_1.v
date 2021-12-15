@@ -21,11 +21,11 @@
 
 
 module mul_32_1(
-    input wire rst,							//澶嶄綅
-	input wire clk,							//鏃堕挓
-	input wire signed_mul_i,						//鏄惁涓烘湁绗﹀彿闄ゆ硶杩愮畻锛?1浣嶆湁绗﹀彿
-	input wire[31:0] opdata1_i,				//琚櫎鏁?
-	input wire[31:0] opdata2_i,				//闄ゆ暟
+    input wire rst,							
+	input wire clk,							
+	input wire signed_mul_i,						
+	input wire[31:0] opdata1_i,				
+	input wire[31:0] opdata2_i,				
 	input wire start_i,						///是否开始乘法运算
 	input wire annul_i,						//是否取消乘法运算，1位取消
 	output reg signed [63:0] result_o,				//乘法运算结果

@@ -122,18 +122,18 @@ module ID(
     wire mem_lo;
     wire mem_hi;
  assign{
- ex_lo_wen,
+    ex_lo_wen,
     ex_hi_wen,
- ex_div_mul_flag,
-  ex_div_mul_result,
+    ex_div_mul_flag,
+    ex_div_mul_result,
     ex_forwarding_we,
     ex_forwarding_waddr,
     ex_forwarding_wdata
     }=ex_to_id_forwarding;
-     assign{
-     mem_lo_wen,
+ assign{
+    mem_lo_wen,
     mem_hi_wen,
-     mem_div_mul_flag,
+    mem_div_mul_flag,
     mem_div_mul_result,
     mem_forwarding_we,
     mem_forwarding_waddr,
@@ -223,8 +223,10 @@ wire [31:0] rr2;
 //        else r2=rdata2;
 //    end
 
-assign r1 = (ex_forwarding_we &&(ex_forwarding_waddr==rs))?ex_forwarding_wdata: ((mem_forwarding_we &&(mem_forwarding_waddr==rs))?mem_forwarding_wdata:((wb_rf_we &&(wb_rf_waddr==rs))?wb_rf_wdata : rdata1));
-assign r2 = (ex_forwarding_we &&(ex_forwarding_waddr==rt))?ex_forwarding_wdata: ((mem_forwarding_we &&(mem_forwarding_waddr==rt))?mem_forwarding_wdata:((wb_rf_we &&(wb_rf_waddr==rt))?wb_rf_wdata : rdata2));
+assign r1 = (ex_forwarding_we &&(ex_forwarding_waddr==rs))?ex_forwarding_wdata: 
+            ((mem_forwarding_we &&(mem_forwarding_waddr==rs))?mem_forwarding_wdata:((wb_rf_we &&(wb_rf_waddr==rs))?wb_rf_wdata : rdata1));
+assign r2 = (ex_forwarding_we &&(ex_forwarding_waddr==rt))?ex_forwarding_wdata:
+            ((mem_forwarding_we &&(mem_forwarding_waddr==rt))?mem_forwarding_wdata:((wb_rf_we &&(wb_rf_waddr==rt))?wb_rf_wdata : rdata2));
 assign stallreq_for_id=(ex_aluop &&((ex_forwarding_waddr==rs)||(ex_forwarding_waddr==rt)))?1'b1:1'b0;
     wire inst_ori, inst_lui, inst_addiu, inst_beq,inst_subu;
 
@@ -309,7 +311,7 @@ assign stallreq_for_id=(ex_aluop &&((ex_forwarding_waddr==rs)||(ex_forwarding_wa
     
     // rs to reg1 操作数一有三种可能
     assign sel_alu_src1[0] = inst_ori 
-                             |inst_addiu
+                             |inst_addiu 
                              |inst_subu
                              |inst_jr
                              |inst_addu
@@ -465,7 +467,7 @@ assign stallreq_for_id=(ex_aluop &&((ex_forwarding_waddr==rs)||(ex_forwarding_wa
     assign sel_rf_res = 1'b0; 
 
     assign id_to_ex_bus = {
-       
+    
         id_pc,          // 158:127
         inst,           // 126:95
         alu_op,         // 94:83

@@ -54,7 +54,6 @@ module EX(
     wire lo_wen;
     wire hi_wen;
     assign {
-    
         ex_pc,          // 148:127
         inst,           // 126:95
         alu_op,         // 94:83
@@ -97,7 +96,7 @@ module EX(
                               alu_result;
 
  //assign ex_result =alu_result;
-  wire[3:0] load_select;
+wire[3:0] load_select;
 assign load_select=(inst[31:26]==6'b100011)?4'b0000://LW
                     (inst[31:26]==6'b100000)?4'b1001://ÓÐ·ûºÅLB
                     (inst[31:26]==6'b100100)?4'b0001://ÎÞ·ûºÅLBU
@@ -179,11 +178,11 @@ assign lo_wen=inst_mtlo?1'b1:1'b0;
 assign hi_wen=inst_mthi?1'b1:1'b0;
 
     assign ex_to_mem_bus = {
-         load_select,
-         lo_wen,
-         hi_wen,
-         inst_div_or_divu_or_mul,
-          div_mul_result,
+        load_select,
+        lo_wen,
+        hi_wen,
+        inst_div_or_divu_or_mul,
+        div_mul_result,
         ex_pc,          // 75:44
         data_ram_en,    // 43
         data_ram_wen,   // 42:39
@@ -196,10 +195,10 @@ assign hi_wen=inst_mthi?1'b1:1'b0;
  
     
     assign ex_to_id_forwarding = {
-     lo_wen,
-         hi_wen,
+        lo_wen,
+        hi_wen,
         inst_div_or_divu_or_mul,
-         div_mul_result,
+        div_mul_result,
         rf_we,          // 37
         rf_waddr,       // 36:32
         ex_result       // 31:0

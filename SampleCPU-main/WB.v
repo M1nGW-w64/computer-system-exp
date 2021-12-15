@@ -41,9 +41,9 @@ module WB(
    wire lo_wen;
     wire hi_wen;
     assign {
-     lo_wen,
-         hi_wen,
-    inst_div_or_divu_or_mul,
+        lo_wen,
+        hi_wen,
+        inst_div_or_divu_or_mul,
         div_mul_result,
         wb_pc,
         rf_we,
@@ -53,10 +53,10 @@ module WB(
 
     // assign wb_to_rf_bus = mem_to_wb_bus_r[`WB_TO_RF_WD-1:0];
     assign wb_to_rf_bus = {
-     lo_wen,
-         hi_wen,
-    inst_div_or_divu_or_mul,
-     div_mul_result,
+        lo_wen,
+        hi_wen,
+        inst_div_or_divu_or_mul,
+        div_mul_result,
         rf_we,
         rf_waddr,
         rf_wdata
