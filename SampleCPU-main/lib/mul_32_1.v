@@ -79,8 +79,8 @@ module mul_32_1(
 					if(annul_i == 1'b0) begin			//进行乘法运算
 						if(cnt != 6'b100000) begin
 						mult1_acc <=(mult2_shift[0]==1'b1)?(mult1_acc+mult1_shift):mult1_acc;
-							mult1_shift<=mult1_shift<<1;
-							mult2_shift<=mult2_shift>>1;
+							mult1_shift<={mult1_shift[62:0],1'b0};
+							mult2_shift<={1'b0,mult2_shift[31:1]};
 							
 							cnt <= cnt +1;		//乘法运算次数
 						end	else begin
