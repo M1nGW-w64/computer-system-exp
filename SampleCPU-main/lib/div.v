@@ -65,7 +65,7 @@ module div(
 								temp_op1 = ~opdata1_i + 1;
 								emp_op1 = {32'b0,~opdata1_i + 1};
 							end else begin
-							    emp_op1 ={32'b0,opdata1_i};
+							    emp_op1 = opdata1_i;
 								temp_op1 = opdata1_i;
 							end
 							if (signed_div_i == 1'b1 && opdata2_i[31] == 1'b1 ) begin			//除数为负数
@@ -114,8 +114,8 @@ module div(
 						end
 						if(cnt != 6'b100000&&sel==2'b01) begin
 						    mult1_acc <=(temp_op2[0]==1'b1)?(mult1_acc+emp_op1):mult1_acc;
-							emp_op1<={emp_op1[62:0],1'b0};
-							temp_op2<={1'b0,temp_op2[31:1]};
+							emp_op1<=emp_op1<<1;
+							temp_op2<=temp_op2>>1;
 //							 mult1_acc <=(temp_op2[0]==1'b1)?(mult1_acc+emp_op1):mult1_acc;
 							cnt <= cnt +1;		//乘法运算次数
 						end	else if(sel==2'b01) begin
