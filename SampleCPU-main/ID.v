@@ -228,7 +228,14 @@ assign r1 = (ex_forwarding_we &&(ex_forwarding_waddr==rs))?ex_forwarding_wdata:
 assign r2 = (ex_forwarding_we &&(ex_forwarding_waddr==rt))?ex_forwarding_wdata:
             ((mem_forwarding_we &&(mem_forwarding_waddr==rt))?mem_forwarding_wdata:((wb_rf_we &&(wb_rf_waddr==rt))?wb_rf_wdata : rdata2));
 assign stallreq_for_id=(ex_aluop &&((ex_forwarding_waddr==rs)||(ex_forwarding_waddr==rt)))?1'b1:1'b0;
-    wire inst_ori, inst_lui, inst_addiu, inst_beq,inst_subu;
+   wire inst_ori, inst_lui, inst_addiu, inst_beq, inst_subu,
+         inst_jal, inst_jr, inst_addu, inst_or, inst_sll, inst_lw,
+         inst_sw,inst_xor, inst_sltu, inst_bne, inst_slt, inst_slti,
+         inst_sltiu, inst_j, inst_add, inst_sub, inst_and, inst_andi,
+         inst_nor, inst_xori, inst_sllv, inst_sra, inst_srav, inst_srl,
+         inst_srlv,inst_bgez,inst_bgtz,inst_blez,inst_bltz,inst_bltzal,inst_bgezal,inst_jalr,
+         inst_mfhi,inst_mflo, inst_mthi, inst_mtlo, inst_div ,inst_divu, inst_lb, inst_lbu,
+         inst_lh, inst_lhu, inst_sb, inst_sh;
 
     wire op_add, op_sub, op_slt, op_sltu;
     wire op_and, op_nor, op_or, op_xor;
