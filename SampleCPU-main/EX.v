@@ -75,9 +75,12 @@ module EX(
 
     wire [31:0] alu_src1, alu_src2;
     wire [31:0] alu_result, ex_result;
-
+    wire [2:0] shift;
+    assign shift=inst[7:6]+1'b1; 
     assign alu_src1 = sel_alu_src1[1] ? ex_pc :
-                      sel_alu_src1[2] ? sa_zero_extend : rf_rdata1;
+                      sel_alu_src1[2] ? sa_zero_extend : 
+                      (((inst[31:26] == 6'b011100) && (inst[5:0] == 6'b110111))&&sel_alu_src1[0]==1'b1)?rf_rdata1<<shift:
+                      rf_rdata1;
 
     assign alu_src2 = sel_alu_src2[1] ? imm_sign_extend :
                       sel_alu_src2[2] ? 32'd8 :
